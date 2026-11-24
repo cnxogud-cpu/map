@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 동네 칠곡 생활정보 안내</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            transition: font-size 0.2s ease;
+        }
+
+        /* Font Scaling Classes */
+        .font-scale-normal { font-size: 100%; }
+        .font-scale-large { font-size: 115%; }
+        .font-scale-xlarge { font-size: 130%; }
+
+        /* Custom Leaflet Map Pin Styles */
+        .custom-pin {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            border: 2px solid white;
+            transition: transform 0.2s ease;
+        }
+        .custom-pin i {
+            transform: rotate(45deg);
+            font-size: 16px;
+        }
+        .custom-pin:hover {
+            transform: rotate(-45deg) scale(1.2);
+            z-index: 1000 !important;
+        }
+
+        /* Category Color Pins */
+        .pin-hospital { background-color: #f43f5e; } /* Rose */
+        .pin-transport { background-color: #3b82f6; } /* Blue */
+        .pin-shopping { background-color: #eab308; }  /* Amber */
+        .pin-school { background-color: #8b5cf6; }    /* Purple */
+
+        /* Leaflet Popup Custom Styling */
+        .leaflet-popup-content-wrapper {
+            border-radius: 1rem;
+            padding: 4px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+        }
+        .leaflet-popup-content {
+            margin: 12px 16px;
+            line-height: 1.5;
+        }
+
+        /* Metro Line 3 Polyline Pulse Effect */
+        .metro-line-path {
+            stroke-dasharray: 8, 8;
+            animation: dash 30s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -1000; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-scale-normal min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
+
+    <!-- 1. Top Navigation Bar -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- Home Reset Button -->
+            <button onclick="resetApp()" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl shadow transition active:scale-95 text-base sm:text-lg">
+                <i class="fa-solid fa-house text-xl text-rose-400"></i>
+                <span>🏠 첫 화면으로 돌아가기</span>
+            </button>
+
+            <!-- Font Size Adjuster Controls -->
+            <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                <span class="text-xs sm:text-sm font-semibold text-slate-500 px-2 flex items-center gap-1">
+                    <i class="fa-solid fa-text-height"></i> 글씨 크기
+                </span>
+                <button onclick="setFontScale('normal')" id="btn-font-normal" class="px-3 py-1.5 rounded-xl text-sm font-bold bg-white text-rose-600 shadow-sm transition">
+                    보통
+                </button>
+                <button onclick="setFontScale('large')" id="btn-font-large" class="px-3 py-1.5 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 transition">
+                    크게
+                </button>
+                <button onclick="setFontScale('xlarge')" id="btn-font-xlarge" class="px-3 py-1.5 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 transition">
+                    아주 크게
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-4 py-6 flex-grow space-y-8">
+
+        <!-- 2. Main Header / Banner Section -->
+        <section class="bg-gradient-to-br from-rose-500 via-rose-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+            <!-- Decorative background elements -->
+            <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="absolute right-1/3 -top-10 w-48 h-48 bg-yellow-300/20 rounded-full blur-xl pointer-events-none"></div>
+
+            <div class="relative z-10 space-y-4">
+                <div class="flex flex-wrap gap-2">
+                    <span class="bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-medium px-3 py-1 rounded-full border border-white/20">
+                        📍 칠곡 1·2·3지구 안내
+                    </span>
+                    <span class="bg-yellow-400 text-slate-900 text-xs sm:text-sm font-bold px-3 py-1 rounded-full shadow-sm">
+                        🏥 병원·교통·장보기
+                    </span>
+                    <span class="bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-medium px-3 py-1 rounded-full border border-white/20">
+                        👓 큰 글씨 간편 보기
+                    </span>
+                </div>
+
+                <div>
+                    <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                        우리 동네 칠곡 생활정보 안내
+                    </h1>
+                    <p class="text-rose-100 text-base sm:text-xl font-medium mt-2">
+                        처음 방문해도 걱정 없어요! 병원부터 교통, 쇼핑까지 한눈에 확인하세요.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Four Major Category Quick Buttons -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Hospital / Pharmacy -->
+            <button onclick="selectCategory('hospital')" class="group p-5 rounded-3xl bg-rose-50 hover:bg-rose-100 border-2 border-rose-200 hover:border-rose-400 text-left transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between h-36">
+                <div class="flex justify-between items-start">
+                    <div class="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-hospital"></i>
+                    </div>
+                    <span class="bg-rose-200 text-rose-800 text-xs font-bold px-2.5 py-1 rounded-full">6곳</span>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-rose-500 uppercase tracking-wider">Category 1</div>
+                    <div class="text-lg sm:text-xl font-bold text-slate-900">① 병원·약국</div>
+                </div>
+            </button>
+
+            <!-- Metro / Bus Stop -->
+            <button onclick="selectCategory('transport')" class="group p-5 rounded-3xl bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 text-left transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between h-36">
+                <div class="flex justify-between items-start">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-500 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-subway"></i>
+                    </div>
+                    <span class="bg-blue-200 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full">9곳</span>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-blue-500 uppercase tracking-wider">Category 2</div>
+                    <div class="text-lg sm:text-xl font-bold text-slate-900">② 지하철·버스정류장</div>
+                </div>
+            </button>
+
+            <!-- Department Store / Market -->
+            <button onclick="selectCategory('shopping')" class="group p-5 rounded-3xl bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 hover:border-amber-400 text-left transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between h-36">
+                <div class="flex justify-between items-start">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                    </div>
+                    <span class="bg-amber-200 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">4곳</span>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-amber-600 uppercase tracking-wider">Category 3</div>
+                    <div class="text-lg sm:text-xl font-bold text-slate-900">③ 백화점·시장</div>
+                </div>
+            </button>
+
+            <!-- Schools -->
+            <button onclick="selectCategory('school')" class="group p-5 rounded-3xl bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 hover:border-purple-400 text-left transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between h-36">
+                <div class="flex justify-between items-start">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-500 text-white flex items-center justify-center text-2xl shadow-md group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-school"></i>
+                    </div>
+                    <span class="bg-purple-200 text-purple-800 text-xs font-bold px-2.5 py-1 rounded-full">7곳</span>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-purple-500 uppercase tracking-wider">Category 4</div>
+                    <div class="text-lg sm:text-xl font-bold text-slate-900">④ 학교</div>
+                </div>
+            </button>
+        </section>
+
+        <!-- 4. Interactive OpenStreetMap + Filter Chips Section -->
+        <section id="map-section" class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-8 bg-rose-500 rounded-full"></div>
+                    <h2 class="text-xl sm:text-2xl font-bold text-slate-900">우리 동네 도로 지도</h2>
+                    <span class="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">대구 3호선 연계</span>
+                </div>
+
+                <!-- Category Filter Chips -->
+                <div class="flex flex-wrap items-center gap-1.5" id="category-filter-container">
+                    <button onclick="selectCategory('all')" id="filter-btn-all" class="filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-900 text-white transition">
+                        전체 보기 (26)
+                    </button>
+                    <button onclick="selectCategory('hospital')" id="filter-btn-hospital" class="filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-rose-100 hover:text-rose-700 transition">
+                        🏥 병원·약국
+                    </button>
+                    <button onclick="selectCategory('transport')" id="filter-btn-transport" class="filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-700 transition">
+                        🚊 지하철·버스
+                    </button>
+                    <button onclick="selectCategory('shopping')" id="filter-btn-shopping" class="filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-800 transition">
+                        🛍️ 백화점·시장
+                    </button>
+                    <button onclick="selectCategory('school')" id="filter-btn-school" class="filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-purple-100 hover:text-purple-700 transition">
+                        🏫 학교
+                    </button>
+                </div>
+            </div>
+
+            <!-- Leaflet Map Canvas Container -->
+            <div class="relative w-full h-[450px] sm:h-[500px] rounded-2xl overflow-hidden border border-slate-200 shadow-inner z-10">
+                <div id="map" class="w-full h-full"></div>
+            </div>
+            
+            <div class="text-xs sm:text-sm text-slate-500 flex items-center justify-between px-1">
+                <span><i class="fa-solid fa-circle-info text-rose-500 mr-1"></i> 지도의 핀 마커를 누르면 상세 정보와 네이버 지도 연결 링크가 표시됩니다.</span>
+                <span class="hidden sm:inline font-semibold text-amber-600">🟡 노란선: 도시철도 3호선 칠곡 구간</span>
+            </div>
+        </section>
+
+        <!-- 5. Category Detailed List & Search Section -->
+        <section id="list-section" class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-rose-500"></i> 시설 상세 목록
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">칠곡 1·2·3지구 내 주요 26개 시설 정보입니다.</p>
+                </div>
+
+                <!-- Search Input Box -->
+                <div class="relative w-full md:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="시설명, 주소, 구분 검색..." 
+                        class="w-full pl-11 pr-10 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none text-sm transition">
+                    <button onclick="clearSearch()" id="clear-search-btn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subcategory Tabs -->
+            <div id="sub-tabs-container" class="flex flex-wrap gap-2 text-sm">
+                <!-- Dynamically Populated Sub-category Tabs -->
+            </div>
+
+            <!-- Facility Cards Grid -->
+            <div id="facility-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Facility Cards populated via JavaScript -->
+            </div>
+
+            <!-- Empty Search Results Placeholder -->
+            <div id="empty-state" class="hidden text-center py-12 space-y-3">
+                <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-2xl">
+                    <i class="fa-solid fa-building-circle-xmark"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-700">검색 결과가 없습니다</h3>
+                <p class="text-sm text-slate-500">다른 검색어로 다시 시도해보세요.</p>
+                <button onclick="resetApp()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-900 transition">
+                    전체 목록 보기
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 text-center text-sm mt-12 border-t border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 space-y-2">
+            <p class="font-semibold text-slate-300">우리 동네 칠곡 생활정보 안내 (칠곡 1·2·3지구)</p>
+            <p class="text-xs text-slate-500">OpenStreetMap & Leaflet.js 기반 지도 서비스 | 네이버 지도 빠른 길찾기 연동</p>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Complete 26 Facilities Data for Chilgok 1, 2, 3 Districts
+        const facilitiesData = [
+            // 1. Hospital & Pharmacy (6 places)
+            {
+                id: 1,
+                name: "칠곡경북대학교병원",
+                category: "hospital",
+                categoryName: "병원·약국",
+                subCategory: "종합병원",
+                address: "대구광역시 북구 호국로 807",
+                phone: "053-200-2000",
+                lat: 35.9546,
+                lng: 128.5638,
+                note: "칠곡3지구 대형 상급 종합병원",
+                icon: "fa-hospital"
+            },
+            {
+                id: 2,
+                name: "대구가톨릭대학교 칠곡가톨릭병원",
+                category: "hospital",
+                categoryName: "병원·약국",
+                subCategory: "종합병원",
+                address: "대구광역시 북구 칠곡중앙대로 440",
+                phone: "053-320-2000",
+                lat: 35.9348,
+                lng: 128.5473,
+                note: "칠곡1지구 관음동 인근 종합병원",
+                icon: "fa-hospital text-rose-600"
+            },
+            {
+                id: 3,
+                name: "칠곡운암약국",
+                category: "hospital",
+                categoryName: "병원·약국",
+                subCategory: "약국",
+                address: "대구광역시 북구 구암로 160",
+                phone: "053-322-1234",
+                lat: 35.9389,
+                lng: 128.5582,
+                note: "구암동 및 운암역 인근 친절 약국",
+                icon: "fa-pills"
+            },
+            {
+                id: 4,
+                name: "동천온누리약국",
+                category: "hospital",
+                categoryName: "병원·약국",
+                subCategory: "약국",
+                address: "대구광역시 북구 동천로 125",
+                phone: "053-321-8899",
+                lat: 35.9431,
+                lng: 128.5598,
+                note: "칠곡3지구 동천동 중심상가 처방약국",
+                icon: "fa-pills"
+            },
+            {
+                id: 5,
+                name: "칠곡소아청소년과의원",
+                category: "hospital",
+                categoryName: "병원·약국",
+                subCategory: "의원",
+                address: "대구광역시 북구 칠곡중앙대로 415",
+                phone: "053-323-5575",
+                lat: 35.9325,
+                lng: 128.5460,
+                note: "영유아 및 소아 진료 전문 의원",
+                icon: "fa-user-doctor"
+            },
+            {
+                id: 6,
+                name: "바른이치과의원",
+                category: "hospital",
+                categoryName: "병원·약국",
+                subCategory: "의원",
+                address: "대구광역시 북구 동천로 138",
+                phone: "053-325-2875",
+                lat: 35.9442,
+                lng: 128.5606,
+                note: "팔거역 상권 치과 진료 전문",
+                icon: "fa-tooth"
+            },
+
+            // 2. Metro & Bus Stops (9 places)
+            {
+                id: 7,
+                name: "칠곡경대병원역 (3호선)",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "3호선 역",
+                address: "대구광역시 북구 50사단길 17",
+                phone: "053-640-3000",
+                lat: 35.9575,
+                lng: 128.5663,
+                note: "대구도시철도 3호선 종점역",
+                icon: "fa-train-subway"
+            },
+            {
+                id: 8,
+                name: "학정역 (3호선)",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "3호선 역",
+                address: "대구광역시 북구 학정동 892-1",
+                phone: "053-640-3000",
+                lat: 35.9500,
+                lng: 128.5635,
+                note: "학정동 및 산재병원 인근 역",
+                icon: "fa-train-subway"
+            },
+            {
+                id: 9,
+                name: "팔거역(국립농관원) (3호선)",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "3호선 역",
+                address: "대구광역시 북구 동천동 971",
+                phone: "053-640-3000",
+                lat: 35.9448,
+                lng: 128.5595,
+                note: "칠곡3지구 중심상업지구 연결 역",
+                icon: "fa-train-subway"
+            },
+            {
+                id: 10,
+                name: "동천역 (3호선)",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "3호선 역",
+                address: "대구광역시 북구 동천동 938-1",
+                phone: "053-640-3000",
+                lat: 35.9392,
+                lng: 128.5562,
+                note: "동천동 주거지역 핵심 환승역",
+                icon: "fa-train-subway"
+            },
+            {
+                id: 11,
+                name: "칠곡운암역 (3호선)",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "3호선 역",
+                address: "대구광역시 북구 구암동 766-1",
+                phone: "053-640-3000",
+                lat: 35.9323,
+                lng: 128.5528,
+                note: "칠곡2지구 및 운암지 수변공원 인근",
+                icon: "fa-train-subway"
+            },
+            {
+                id: 12,
+                name: "태전역 (3호선)",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "3호선 역",
+                address: "대구광역시 북구 태전동 979",
+                phone: "053-640-3000",
+                lat: 35.9248,
+                lng: 128.5398,
+                note: "태전동 및 대구보건대 접근 역",
+                icon: "fa-train-subway"
+            },
+            {
+                id: 13,
+                name: "동천역건너 버스정류장",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "버스정류장",
+                address: "대구광역시 북구 구암로 140 인근",
+                phone: "시내버스 안내 120",
+                lat: 35.9398,
+                lng: 128.5558,
+                note: "칠곡2·3지구 순환 시내버스 다수 정차",
+                icon: "fa-bus"
+            },
+            {
+                id: 14,
+                name: "칠곡초등학교앞 버스정류장",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "버스정류장",
+                address: "대구광역시 북구 칠곡중앙대로 426 앞",
+                phone: "시내버스 안내 120",
+                lat: 35.9318,
+                lng: 128.5448,
+                note: "칠곡1지구 칠곡중앙대로 주노선 정류장",
+                icon: "fa-bus"
+            },
+            {
+                id: 15,
+                name: "칠곡네거리 버스정류장",
+                category: "transport",
+                categoryName: "지하철·버스정류장",
+                subCategory: "버스정류장",
+                address: "대구광역시 북구 칠곡중앙대로 390 인근",
+                phone: "시내버스 안내 120",
+                lat: 35.9288,
+                lng: 128.5420,
+                note: "관음동·태전동 방향 버스 교차 정류장",
+                icon: "fa-bus"
+            },
+
+            // 3. Department Stores & Markets (4 places)
+            {
+                id: 16,
+                name: "칠곡시장 (칠곡목요장)",
+                category: "shopping",
+                categoryName: "백화점·시장",
+                subCategory: "전통시장",
+                address: "대구광역시 북구 칠곡중앙대로115길 43",
+                phone: "053-321-0082",
+                lat: 35.9310,
+                lng: 128.5445,
+                note: "역사 깊은 칠곡1지구 전통 오일장 및 상설시장",
+                icon: "fa-store"
+            },
+            {
+                id: 17,
+                name: "홈플러스 칠곡점",
+                category: "shopping",
+                categoryName: "백화점·시장",
+                subCategory: "대형마트",
+                address: "대구광역시 북구 동천로 125",
+                phone: "053-607-8000",
+                lat: 35.9430,
+                lng: 128.5610,
+                note: "칠곡3지구 대표 대형 쇼핑마트 및 문화센터",
+                icon: "fa-cart-shopping"
+            },
+            {
+                id: 18,
+                name: "칠곡 동천동 로데오거리 (세이브몰)",
+                category: "shopping",
+                categoryName: "백화점·시장",
+                subCategory: "쇼핑몰",
+                address: "대구광역시 북구 동천동 896-1",
+                phone: "053-320-0000",
+                lat: 35.9445,
+                lng: 128.5620,
+                note: "의류, 식당가, 영화관이 집약된 대표 쇼핑거리",
+                icon: "fa-bag-shopping"
+            },
+            {
+                id: 19,
+                name: "대구농수산물도매시장 (매천시장)",
+                category: "shopping",
+                categoryName: "백화점·시장",
+                subCategory: "도매시장",
+                address: "대구광역시 북구 매천로 18",
+                phone: "053-310-2100",
+                lat: 35.9125,
+                lng: 128.5492,
+                note: "신선한 과일·채소·수산물 대형 도매시장",
+                icon: "fa-apple-whole"
+            },
+
+            // 4. Schools (7 places)
+            {
+                id: 20,
+                name: "대구칠곡초등학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "초등학교",
+                address: "대구광역시 북구 칠곡중앙대로 426",
+                phone: "053-231-6600",
+                lat: 35.9332,
+                lng: 128.5465,
+                note: "100년 전통을 자랑하는 칠곡1지구 초등학교",
+                icon: "fa-graduation-cap"
+            },
+            {
+                id: 21,
+                name: "대구강북초등학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "초등학교",
+                address: "대구광역시 북구 구암로 171",
+                phone: "053-231-6700",
+                lat: 35.9398,
+                lng: 128.5601,
+                note: "칠곡2지구 구암동 인근 초등학교",
+                icon: "fa-graduation-cap"
+            },
+            {
+                id: 22,
+                name: "대구동천초등학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "초등학교",
+                address: "대구광역시 북구 동천로 91",
+                phone: "053-231-6800",
+                lat: 35.9405,
+                lng: 128.5585,
+                note: "칠곡3지구 동천동 주거지역 초등학교",
+                icon: "fa-graduation-cap"
+            },
+            {
+                id: 23,
+                name: "대구관음초등학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "초등학교",
+                address: "대구광역시 북구 관음중앙로 49",
+                phone: "053-231-6500",
+                lat: 35.9372,
+                lng: 128.5420,
+                note: "관음동 주거단지 명문 초등학교",
+                icon: "fa-graduation-cap"
+            },
+            {
+                id: 24,
+                name: "구암중학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "중학교",
+                address: "대구광역시 북구 구암로 143",
+                phone: "053-231-6900",
+                lat: 35.9380,
+                lng: 128.5550,
+                note: "구암동 위치 공립 중학교",
+                icon: "fa-school"
+            },
+            {
+                id: 25,
+                name: "칠곡중학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "중학교",
+                address: "대구광역시 북구 칠곡중앙대로 394",
+                phone: "053-231-6400",
+                lat: 35.9300,
+                lng: 128.5440,
+                note: "칠곡1지구 위치 중학교",
+                icon: "fa-school"
+            },
+            {
+                id: 26,
+                name: "강북고등학교",
+                category: "school",
+                categoryName: "학교",
+                subCategory: "고등학교",
+                address: "대구광역시 북구 태전로 75",
+                phone: "053-320-9700",
+                lat: 35.9255,
+                lng: 128.5480,
+                note: "태전동 소재 사립 고등학교",
+                icon: "fa-school-flag"
+            }
+        ];
+
+        // Global State Variables
+        let map;
+        let markersGroup;
+        let currentCategory = 'all';
+        let currentSubCategory = 'all';
+        let searchQuery = '';
+
+        // Initial Map Center & Zoom Level
+        const CHILGOK_CENTER = [35.9385, 128.5555];
+        const DEFAULT_ZOOM = 13;
+
+        // Metro Line 3 Polyline Coordinates (Chilgok Kyungpook Nat'l Univ. Hosp -> Taejeon Station)
+        const metroLine3Coords = [
+            [35.9575, 128.5663], // 칠곡경대병원역
+            [35.9500, 128.5635], // 학정역
+            [35.9448, 128.5595], // 팔거역
+            [35.9392, 128.5562], // 동천역
+            [35.9323, 128.5528], // 칠곡운암역
+            [35.9248, 128.5398]  // 태전역
+        ];
+
+        // Category Configuration & Colors
+        const categoryConfig = {
+            hospital: { pinClass: 'pin-hospital', iconClass: 'fa-hospital', name: '병원·약국', color: 'rose' },
+            transport: { pinClass: 'pin-transport', iconClass: 'fa-subway', name: '지하철·버스', color: 'blue' },
+            shopping: { pinClass: 'pin-shopping', iconClass: 'fa-cart-shopping', name: '백화점·시장', color: 'amber' },
+            school: { pinClass: 'pin-school', iconClass: 'fa-graduation-cap', name: '학교', color: 'purple' }
+        };
+
+        // On DOM Loaded Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            renderSubTabs();
+            renderFacilityCards();
+        });
+
+        // Initialize OpenStreetMap & Leaflet Map
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: true
+            }).setView(CHILGOK_CENTER, DEFAULT_ZOOM);
+
+            // Add OpenStreetMap Tile Layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Draw Daegu Metro Line 3 Route Polyline (Yellow Monorail Line)
+            L.polyline(metroLine3Coords, {
+                color: '#f59e0b', // Amber/Yellow
+                weight: 6,
+                opacity: 0.85,
+                lineCap: 'round',
+                className: 'metro-line-path'
+            }).addTo(map).bindTooltip("대구 도시철도 3호선 칠곡 구간", { permanent: false, direction: "top" });
+
+            // Layer group for marker management
+            markersGroup = L.layerGroup().addTo(map);
+
+            // Initial Marker Render
+            renderMapMarkers();
+        }
+
+        // Render Leaflet Map Markers with Custom Pins
+        function renderMapMarkers() {
+            markersGroup.clearLayers();
+
+            const filtered = getFilteredData();
+
+            filtered.forEach(item => {
+                const conf = categoryConfig[item.category];
+                
+                // Create Custom HTML Pin Icon
+                const pinHtml = `
+                    <div class="custom-pin ${conf.pinClass}">
+                        <i class="fa-solid ${conf.iconClass}"></i>
+                    </div>
+                `;
+
+                const customIcon = L.divIcon({
+                    html: pinHtml,
+                    className: 'custom-leaflet-pin',
+                    iconSize: [38, 38],
+                    iconAnchor: [19, 38],
+                    popupAnchor: [0, -34]
+                });
+
+                // Naver Map Direct Search Link URL
+                const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.name)}`;
+
+                // Popup Content HTML
+                const popupContent = `
+                    <div class="space-y-2 text-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded text-white ${conf.pinClass}">
+                                ${item.subCategory}
+                            </span>
+                            <span class="text-xs font-semibold text-slate-400">${item.categoryName}</span>
+                        </div>
+                        <h4 class="text-base font-extrabold text-slate-900">${item.name}</h4>
+                        <p class="text-xs text-slate-600"><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${item.address}</p>
+                        <p class="text-xs text-slate-600"><i class="fa-solid fa-phone text-slate-400 mr-1"></i>${item.phone}</p>
+                        <p class="text-xs font-medium text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">${item.note}</p>
+                        
+                        <div class="pt-2 border-t border-slate-100">
+                            <a href="${naverMapUrl}" target="_blank" rel="noopener noreferrer" 
+                               class="inline-flex items-center justify-center gap-1.5 w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs py-2 px-3 rounded-xl transition shadow-sm">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                                네이버 지도에서 위치 확인
+                            </a>
+                        </div>
+                    </div>
+                `;
+
+                const marker = L.marker([item.lat, item.lng], { icon: customIcon });
+                marker.bindPopup(popupContent);
+                marker.itemId = item.id;
+                markersGroup.addLayer(marker);
+            });
+        }
+
+        // Filter Data Helper Logic
+        function getFilteredData() {
+            return facilitiesData.filter(item => {
+                // Category Filter
+                const matchesCategory = (currentCategory === 'all' || item.category === currentCategory);
+                
+                // SubCategory Filter
+                const matchesSubCategory = (currentSubCategory === 'all' || item.subCategory === currentSubCategory);
+                
+                // Search Keyword Filter
+                const q = searchQuery.trim().toLowerCase();
+                const matchesSearch = !q || (
+                    item.name.toLowerCase().includes(q) ||
+                    item.address.toLowerCase().includes(q) ||
+                    item.subCategory.toLowerCase().includes(q) ||
+                    item.categoryName.toLowerCase().includes(q) ||
+                    item.note.toLowerCase().includes(q)
+                );
+
+                return matchesCategory && matchesSubCategory && matchesSearch;
+            });
+        }
+
+        // Select Main Category Filter
+        function selectCategory(cat) {
+            currentCategory = cat;
+            currentSubCategory = 'all'; // Reset subcategory when switching main category
+
+            // Update Map Filter Button UI States
+            const categories = ['all', 'hospital', 'transport', 'shopping', 'school'];
+            categories.forEach(c => {
+                const btn = document.getElementById(`filter-btn-${c}`);
+                if (btn) {
+                    if (c === cat) {
+                        btn.className = "filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-900 text-white shadow-sm transition";
+                    } else {
+                        btn.className = "filter-chip px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+                    }
+                }
+            });
+
+            renderSubTabs();
+            renderFacilityCards();
+            renderMapMarkers();
+
+            // Adjust Map Bounds to filtered markers
+            const filtered = getFilteredData();
+            if (filtered.length > 0) {
+                const bounds = L.latLngBounds(filtered.map(f => [f.lat, f.lng]));
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+            } else {
+                map.setView(CHILGOK_CENTER, DEFAULT_ZOOM);
+            }
+        }
+
+        // Render Sub-category Tab Buttons
+        function renderSubTabs() {
+            const container = document.getElementById('sub-tabs-container');
+            container.innerHTML = '';
+
+            // Get available sub-categories for the selected category
+            let baseList = facilitiesData;
+            if (currentCategory !== 'all') {
+                baseList = baseList.filter(f => f.category === currentCategory);
+            }
+
+            const subCats = ['all', ...new Set(baseList.map(f => f.subCategory))];
+
+            if (subCats.length <= 2) {
+                // If only 1 subcategory exists, hide subtabs
+                return;
+            }
+
+            subCats.forEach(sub => {
+                const btn = document.createElement('button');
+                const isSelected = (currentSubCategory === sub);
+                btn.className = `px-3 py-1.5 rounded-xl font-bold transition text-xs sm:text-sm ${
+                    isSelected 
+                    ? 'bg-rose-500 text-white shadow-sm' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`;
+                btn.textContent = sub === 'all' ? '세부 구분 전체' : sub;
+                btn.onclick = () => {
+                    currentSubCategory = sub;
+                    renderSubTabs();
+                    renderFacilityCards();
+                    renderMapMarkers();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // Render Facility Cards in Grid
+        function renderFacilityCards() {
+            const grid = document.getElementById('facility-grid');
+            const emptyState = document.getElementById('empty-state');
+            grid.innerHTML = '';
+
+            const data = getFilteredData();
+
+            if (data.length === 0) {
+                grid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            data.forEach(item => {
+                const conf = categoryConfig[item.category];
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 hover:border-rose-300 rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4 group";
+
+                const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.name)}`;
+
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold ${conf.pinClass} text-white">
+                                ${item.subCategory}
+                            </span>
+                            <span class="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                ${item.categoryName}
+                            </span>
+                        </div>
+
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 group-hover:text-rose-600 transition flex items-center gap-2">
+                                <i class="fa-solid ${item.icon || conf.iconClass} text-slate-400 text-sm"></i>
+                                ${item.name}
+                            </h3>
+                            <p class="text-xs sm:text-sm text-slate-500 mt-1 flex items-start gap-1.5">
+                                <i class="fa-solid fa-location-dot mt-0.5 text-slate-400"></i>
+                                <span>${item.address}</span>
+                            </p>
+                        </div>
+
+                        <div class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1">
+                            <div><span class="font-bold text-slate-500">전화번호:</span> ${item.phone}</div>
+                            <div><span class="font-bold text-slate-500">참고안내:</span> ${item.note}</div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                        <button onclick="focusMapOnItem(${item.id})" 
+                            class="flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-2.5 px-3 rounded-xl transition">
+                            <i class="fa-solid fa-crosshairs text-rose-500"></i>
+                            지도에서 보기
+                        </button>
+                        <a href="${naverMapUrl}" target="_blank" rel="noopener noreferrer" 
+                            class="flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition text-center shadow-sm">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            네이버 지도
+                        </a>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Pan Map & Open Popup for specific Item ID
+        function focusMapOnItem(id) {
+            const item = facilitiesData.find(f => f.id === id);
+            if (!item) return;
+
+            // Scroll smoothly to map section
+            document.getElementById('map-section').scrollIntoView({ behavior: 'smooth' });
+
+            // Pan map & set zoom
+            map.setView([item.lat, item.lng], 16, { animate: true });
+
+            // Open target marker popup
+            markersGroup.eachLayer(marker => {
+                if (marker.itemId === id) {
+                    setTimeout(() => marker.openPopup(), 300);
+                }
+            });
+        }
+
+        // Live Search Handler
+        function handleSearch() {
+            const input = document.getElementById('search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            searchQuery = input.value;
+
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+
+            renderFacilityCards();
+            renderMapMarkers();
+        }
+
+        // Clear Search Input
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            input.value = '';
+            searchQuery = '';
+            document.getElementById('clear-search-btn').classList.add('hidden');
+            renderFacilityCards();
+            renderMapMarkers();
+        }
+
+        // Font Size Adjuster Controls
+        function setFontScale(scale) {
+            const body = document.body;
+            body.classList.remove('font-scale-normal', 'font-scale-large', 'font-scale-xlarge');
+
+            const btnNormal = document.getElementById('btn-font-normal');
+            const btnLarge = document.getElementById('btn-font-large');
+            const btnXlarge = document.getElementById('btn-font-xlarge');
+
+            // Reset active button styling
+            [btnNormal, btnLarge, btnXlarge].forEach(b => {
+                b.className = "px-3 py-1.5 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 transition";
+            });
+
+            if (scale === 'normal') {
+                body.classList.add('font-scale-normal');
+                btnNormal.className = "px-3 py-1.5 rounded-xl text-sm font-bold bg-white text-rose-600 shadow-sm transition";
+            } else if (scale === 'large') {
+                body.classList.add('font-scale-large');
+                btnLarge.className = "px-3 py-1.5 rounded-xl text-sm font-bold bg-white text-rose-600 shadow-sm transition";
+            } else if (scale === 'xlarge') {
+                body.classList.add('font-scale-xlarge');
+                btnXlarge.className = "px-3 py-1.5 rounded-xl text-sm font-bold bg-white text-rose-600 shadow-sm transition";
+            }
+
+            // Invalidate Leaflet Map Size so markers remain properly positioned after font scaling
+            if (map) {
+                setTimeout(() => map.invalidateSize(), 200);
+            }
+        }
+
+        // Reset App to Initial State (Home Button)
+        function resetApp() {
+            clearSearch();
+            selectCategory('all');
+            setFontScale('normal');
+            map.setView(CHILGOK_CENTER, DEFAULT_ZOOM);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
